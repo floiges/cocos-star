@@ -164,25 +164,37 @@ window.__require = function e(t, n, r) {
         _this.label = null;
         _this.jumpHeight = 0;
         _this.jumpDuration = 0;
+        _this.squashDuration = .1;
         _this.maxMoveSpeed = 0;
         _this.accel = 0;
         _this.jumpAudio = null;
+        _this.jumpAction = null;
         _this.accLeft = false;
         _this.accRight = false;
         _this.xSpeed = 0;
+        _this.minPosX = 0;
+        _this.maxPosX = 0;
         return _this;
       }
       Player.prototype.onLoad = function() {
-        var jumpAction = this.runJumpAction();
-        cc.tween(this.node).then(jumpAction).start();
-        cc.systemEvent.on(cc.SystemEvent.EventType.KEY_DOWN, this.onKeyDown, this);
-        cc.systemEvent.on(cc.SystemEvent.EventType.KEY_UP, this.onKeyUp, this);
+        this.minPosX = -this.node.parent.width / 2;
+        this.maxPosX = this.node.parent.width / 2;
+        this.jumpAction = this.runJumpAction();
+        cc.tween(this.node).then(this.jumpAction).start();
+        this.setInputControl();
       };
       Player.prototype.start = function() {};
       Player.prototype.update = function(dt) {
         this.accLeft ? this.xSpeed -= this.accel * dt : this.accRight && (this.xSpeed += this.accel * dt);
         Math.abs(this.xSpeed) > this.maxMoveSpeed && (this.xSpeed = this.maxMoveSpeed * this.xSpeed / Math.abs(this.xSpeed));
         this.node.x += this.xSpeed * dt;
+        if (this.node.x >= this.maxPosX) {
+          this.node.x = this.maxPosX;
+          this.xSpeed = 0;
+        } else if (this.node.x < this.minPosX) {
+          this.node.x = this.minPosX;
+          this.xSpeed = 0;
+        }
       };
       Player.prototype.onDestroy = function() {
         cc.systemEvent.off(cc.SystemEvent.EventType.KEY_DOWN, this.onKeyDown, this);
@@ -199,28 +211,67 @@ window.__require = function e(t, n, r) {
         }, {
           easing: "sineIn"
         });
-        var tween = cc.tween().sequence(jumpUp, jumpDown).call(this.playJumpSound, this);
+        var squash = cc.tween().to(this.squashDuration, {
+          scaleX: 1,
+          scaleY: .6
+        });
+        var stretch = cc.tween().to(this.squashDuration, {
+          scaleX: 1,
+          scaleY: 1.2
+        });
+        var scaleBack = cc.tween().to(this.squashDuration, {
+          scaleX: 1,
+          scaleY: 1
+        });
+        var tween = cc.tween().sequence(squash, stretch, jumpUp, scaleBack, jumpDown).call(this.playJumpSound, this);
         return cc.tween().repeatForever(tween);
+      };
+      Player.prototype.setInputControl = function() {
+        cc.systemEvent.on(cc.SystemEvent.EventType.KEY_DOWN, this.onKeyDown, this);
+        cc.systemEvent.on(cc.SystemEvent.EventType.KEY_UP, this.onKeyUp, this);
+        this.node.parent.on(cc.Node.EventType.TOUCH_START, this.onTouchBegan, this);
+        this.node.parent.on(cc.Node.EventType.TOUCH_END, this.onTouchEnded, this);
       };
       Player.prototype.onKeyDown = function(event) {
         switch (event.keyCode) {
          case cc.macro.KEY.a:
+         case cc.macro.KEY.left:
           this.accLeft = true;
+          this.accRight = false;
           break;
 
          case cc.macro.KEY.d:
+         case cc.macro.KEY.right:
           this.accRight = true;
+          this.accLeft = false;
         }
       };
       Player.prototype.onKeyUp = function(event) {
         switch (event.keyCode) {
          case cc.macro.KEY.a:
+         case cc.macro.KEY.left:
           this.accLeft = false;
           break;
 
          case cc.macro.KEY.d:
+         case cc.macro.KEY.right:
           this.accRight = false;
         }
+      };
+      Player.prototype.onTouchBegan = function(event) {
+        var touchLoc = event.getLocation();
+        if (touchLoc.x >= cc.winSize.width / 2) {
+          this.accLeft = false;
+          this.accRight = true;
+        } else {
+          this.accLeft = true;
+          this.accRight = false;
+        }
+        return true;
+      };
+      Player.prototype.onTouchEnded = function(event) {
+        this.accLeft = false;
+        this.accRight = false;
       };
       Player.prototype.playJumpSound = function() {
         cc.audioEngine.playEffect(this.jumpAudio, false);
@@ -228,6 +279,7 @@ window.__require = function e(t, n, r) {
       __decorate([ property(cc.Label) ], Player.prototype, "label", void 0);
       __decorate([ property ], Player.prototype, "jumpHeight", void 0);
       __decorate([ property ], Player.prototype, "jumpDuration", void 0);
+      __decorate([ property ], Player.prototype, "squashDuration", void 0);
       __decorate([ property ], Player.prototype, "maxMoveSpeed", void 0);
       __decorate([ property ], Player.prototype, "accel", void 0);
       __decorate([ property(cc.AudioClip) ], Player.prototype, "jumpAudio", void 0);

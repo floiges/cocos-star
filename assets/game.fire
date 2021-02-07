@@ -538,6 +538,7 @@
     "label": null,
     "jumpHeight": 150,
     "jumpDuration": 0.3,
+    "squashDuration": 0.1,
     "maxMoveSpeed": 400,
     "accel": 350,
     "jumpAudio": {

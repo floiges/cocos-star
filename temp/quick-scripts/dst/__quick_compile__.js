@@ -1,6 +1,6 @@
 
 (function () {
-var scripts = [{"deps":{"./assets/scripts/Star":2,"./assets/scripts/Game":3,"./assets/scripts/Player":1},"path":"preview-scripts/__qc_index__.js"},{"deps":{},"path":"preview-scripts/assets/scripts/Player.js"},{"deps":{},"path":"preview-scripts/assets/scripts/Star.js"},{"deps":{},"path":"preview-scripts/assets/scripts/Game.js"}];
+var scripts = [{"deps":{"./assets/scripts/Star":2,"./assets/scripts/Player":1,"./assets/scripts/Game":3},"path":"preview-scripts/__qc_index__.js"},{"deps":{},"path":"preview-scripts/assets/scripts/Player.js"},{"deps":{},"path":"preview-scripts/assets/scripts/Star.js"},{"deps":{},"path":"preview-scripts/assets/scripts/Game.js"}];
 var entries = ["preview-scripts/__qc_index__.js"];
 var bundleScript = 'preview-scripts/__qc_bundle__.js';
 

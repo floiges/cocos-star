@@ -40,23 +40,28 @@ var Player = /** @class */ (function (_super) {
         _this.label = null; // 这里是 TypeScript 用来声明变量类型的写法，冒号后面是属性类型，等号后面是默认值
         _this.jumpHeight = 0; // 主角跳跃高度
         _this.jumpDuration = 0; // 主角跳跃持续时间
+        _this.squashDuration = 0.1; // 辅助形变动作时间
         _this.maxMoveSpeed = 0; // 最大移动速度
         _this.accel = 0; // 加速度
         _this.jumpAudio = null; // 跳跃音效资源
+        _this.jumpAction = null;
         // 加速度方向开关
         _this.accLeft = false;
         _this.accRight = false;
         _this.xSpeed = 0; // 主角当前水平方向速度
+        // screen boundaries
+        _this.minPosX = 0;
+        _this.maxPosX = 0;
         return _this;
     }
     // LIFE-CYCLE CALLBACKS:
     // 在场景加载后立刻执行，所以初始化相关的操作和逻辑都会放在这里面
     Player.prototype.onLoad = function () {
-        var jumpAction = this.runJumpAction();
-        cc.tween(this.node).then(jumpAction).start();
-        // 初始化键盘输入监听
-        cc.systemEvent.on(cc.SystemEvent.EventType.KEY_DOWN, this.onKeyDown, this);
-        cc.systemEvent.on(cc.SystemEvent.EventType.KEY_UP, this.onKeyUp, this);
+        this.minPosX = -this.node.parent.width / 2;
+        this.maxPosX = this.node.parent.width / 2;
+        this.jumpAction = this.runJumpAction();
+        cc.tween(this.node).then(this.jumpAction).start();
+        this.setInputControl();
     };
     Player.prototype.start = function () {
     };
@@ -76,6 +81,15 @@ var Player = /** @class */ (function (_super) {
         }
         // 根据当前速度更新主角的位置
         this.node.x += this.xSpeed * dt;
+        // limit player position inside screen
+        if (this.node.x >= this.maxPosX) {
+            this.node.x = this.maxPosX;
+            this.xSpeed = 0;
+        }
+        else if (this.node.x < this.minPosX) {
+            this.node.x = this.minPosX;
+            this.xSpeed = 0;
+        }
     };
     Player.prototype.onDestroy = function () {
         cc.systemEvent.off(cc.SystemEvent.EventType.KEY_DOWN, this.onKeyDown, this);
@@ -87,33 +101,68 @@ var Player = /** @class */ (function (_super) {
         var jumpUp = cc.tween().by(this.jumpDuration, { y: this.jumpHeight }, { easing: 'sineOut' });
         // 下落
         var jumpDown = cc.tween().by(this.jumpDuration, { y: -this.jumpHeight }, { easing: 'sineIn' });
+        // 形变
+        var squash = cc.tween().to(this.squashDuration, { scaleX: 1, scaleY: 0.6 });
+        var stretch = cc.tween().to(this.squashDuration, { scaleX: 1, scaleY: 1.2 });
+        var scaleBack = cc.tween().to(this.squashDuration, { scaleX: 1, scaleY: 1 });
         // 创建一个缓动，按 jumpUp、jumpDown 的顺序执行动作
         var tween = cc.tween()
-            .sequence(jumpUp, jumpDown)
+            .sequence(squash, stretch, jumpUp, scaleBack, jumpDown)
             .call(this.playJumpSound, this); // 添加一个回调函数，在前面的动作都结束时调用我们定义的 playJumpSound() 方法
         // 重复
         return cc.tween().repeatForever(tween);
+    };
+    Player.prototype.setInputControl = function () {
+        // 初始化键盘输入监听
+        cc.systemEvent.on(cc.SystemEvent.EventType.KEY_DOWN, this.onKeyDown, this);
+        cc.systemEvent.on(cc.SystemEvent.EventType.KEY_UP, this.onKeyUp, this);
+        // touch input
+        this.node.parent.on(cc.Node.EventType.TOUCH_START, this.onTouchBegan, this);
+        this.node.parent.on(cc.Node.EventType.TOUCH_END, this.onTouchEnded, this);
     };
     Player.prototype.onKeyDown = function (event) {
         // set a flag when key pressed
         switch (event.keyCode) {
             case cc.macro.KEY.a:
+            case cc.macro.KEY.left:
                 this.accLeft = true;
+                this.accRight = false;
                 break;
             case cc.macro.KEY.d:
+            case cc.macro.KEY.right:
                 this.accRight = true;
+                this.accLeft = false;
                 break;
         }
     };
     Player.prototype.onKeyUp = function (event) {
         switch (event.keyCode) {
             case cc.macro.KEY.a:
+            case cc.macro.KEY.left:
                 this.accLeft = false;
                 break;
             case cc.macro.KEY.d:
+            case cc.macro.KEY.right:
                 this.accRight = false;
                 break;
         }
+    };
+    Player.prototype.onTouchBegan = function (event) {
+        var touchLoc = event.getLocation();
+        if (touchLoc.x >= cc.winSize.width / 2) {
+            this.accLeft = false;
+            this.accRight = true;
+        }
+        else {
+            this.accLeft = true;
+            this.accRight = false;
+        }
+        // do not capture the event
+        return true;
+    };
+    Player.prototype.onTouchEnded = function (event) {
+        this.accLeft = false;
+        this.accRight = false;
     };
     Player.prototype.playJumpSound = function () {
         // 调用声音引擎播放声音
@@ -128,6 +177,9 @@ var Player = /** @class */ (function (_super) {
     __decorate([
         property
     ], Player.prototype, "jumpDuration", void 0);
+    __decorate([
+        property
+    ], Player.prototype, "squashDuration", void 0);
     __decorate([
         property
     ], Player.prototype, "maxMoveSpeed", void 0);

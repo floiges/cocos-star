@@ -24,6 +24,9 @@ export default class Player extends cc.Component {
     jumpDuration: number = 0; // 主角跳跃持续时间
 
     @property
+    squashDuration: number = 0.1; // 辅助形变动作时间
+
+    @property
     maxMoveSpeed: number = 0; // 最大移动速度
 
     @property
@@ -32,22 +35,29 @@ export default class Player extends cc.Component {
     @property(cc.AudioClip)
     jumpAudio: cc.AudioClip = null; // 跳跃音效资源
 
+    jumpAction: cc.Tween = null;
+
     // 加速度方向开关
     accLeft: boolean = false;
     accRight: boolean = false;
     xSpeed: number = 0; // 主角当前水平方向速度
+
+    // screen boundaries
+    minPosX: number = 0;
+    maxPosX: number = 0;
 
 
     // LIFE-CYCLE CALLBACKS:
 
     // 在场景加载后立刻执行，所以初始化相关的操作和逻辑都会放在这里面
     onLoad () {
-        const jumpAction = this.runJumpAction();
-        cc.tween(this.node).then(jumpAction).start();
+        this.minPosX = -this.node.parent.width / 2;
+        this.maxPosX = this.node.parent.width / 2;
 
-        // 初始化键盘输入监听
-        cc.systemEvent.on(cc.SystemEvent.EventType.KEY_DOWN, this.onKeyDown, this);
-        cc.systemEvent.on(cc.SystemEvent.EventType.KEY_UP, this.onKeyUp, this);
+        this.jumpAction = this.runJumpAction();
+        cc.tween(this.node).then(this.jumpAction).start();
+
+        this.setInputControl();
     }
 
     start () {
@@ -71,6 +81,15 @@ export default class Player extends cc.Component {
 
         // 根据当前速度更新主角的位置
         this.node.x += this.xSpeed * dt;
+
+        // limit player position inside screen
+        if (this.node.x >= this.maxPosX) {
+            this.node.x = this.maxPosX;
+            this.xSpeed = 0;
+        } else if (this.node.x < this.minPosX) {
+            this.node.x = this.minPosX;
+            this.xSpeed = 0;
+        }
     }
 
     onDestroy () {
@@ -85,22 +104,40 @@ export default class Player extends cc.Component {
         // 下落
         const jumpDown = cc.tween().by(this.jumpDuration, { y: -this.jumpHeight }, { easing: 'sineIn' });
 
+        // 形变
+        const squash = cc.tween().to(this.squashDuration, { scaleX: 1, scaleY: 0.6 });
+        const stretch = cc.tween().to(this.squashDuration, { scaleX: 1, scaleY: 1.2 });
+        const scaleBack = cc.tween().to(this.squashDuration, { scaleX: 1, scaleY: 1 });
+
         // 创建一个缓动，按 jumpUp、jumpDown 的顺序执行动作
         const tween = cc.tween()
-            .sequence(jumpUp, jumpDown)
+            .sequence(squash,stretch, jumpUp, scaleBack, jumpDown)
             .call(this.playJumpSound, this); // 添加一个回调函数，在前面的动作都结束时调用我们定义的 playJumpSound() 方法
         // 重复
         return cc.tween().repeatForever(tween);
+    }
+
+    setInputControl () {
+        // 初始化键盘输入监听
+        cc.systemEvent.on(cc.SystemEvent.EventType.KEY_DOWN, this.onKeyDown, this);
+        cc.systemEvent.on(cc.SystemEvent.EventType.KEY_UP, this.onKeyUp, this);
+        // touch input
+        this.node.parent.on(cc.Node.EventType.TOUCH_START, this.onTouchBegan, this);
+        this.node.parent.on(cc.Node.EventType.TOUCH_END, this.onTouchEnded, this);
     }
 
     onKeyDown (event: cc.Event.EventKeyboard) {
         // set a flag when key pressed
         switch (event.keyCode) {
             case cc.macro.KEY.a:
+            case cc.macro.KEY.left:
                 this.accLeft = true;
+                this.accRight = false;
                 break;
             case cc.macro.KEY.d:
+            case cc.macro.KEY.right:
                 this.accRight = true;
+                this.accLeft = false;
                 break;
         }
     }
@@ -108,12 +145,32 @@ export default class Player extends cc.Component {
     onKeyUp (event: cc.Event.EventKeyboard) {
         switch (event.keyCode) {
             case cc.macro.KEY.a:
+            case cc.macro.KEY.left:
                 this.accLeft = false;
                 break;
             case cc.macro.KEY.d:
+            case cc.macro.KEY.right:
                 this.accRight = false;
                 break;
         }
+    }
+
+    onTouchBegan (event: cc.Event.EventTouch) {
+        const touchLoc = event.getLocation();
+        if (touchLoc.x >= cc.winSize.width / 2) {
+            this.accLeft = false;
+            this.accRight = true;
+        } else {
+            this.accLeft = true;
+            this.accRight = false;
+        }
+        // do not capture the event
+        return true;
+    }
+
+    onTouchEnded (event: cc.Event.EventTouch) {
+        this.accLeft = false;
+        this.accRight = false;
     }
 
     playJumpSound () {
